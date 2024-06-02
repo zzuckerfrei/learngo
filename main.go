@@ -22,6 +22,17 @@ func lenAndUpper(name string) (length int, uppper string) {
 	return
 }
 
+// for
+func supperAdd(numbers ...int) int {
+	total := 0
+	for _, number := range numbers {
+		// fmt.Println(idx, number)
+		total += number
+	}
+
+	return total
+}
+
 func main() {
 	println("한글도 잘 나오나?")
 
@@ -29,7 +40,11 @@ func main() {
 
 	repeatMe("test", "test2", "test3")
 
+	// naked return, defer
 	name_len, name_upper := lenAndUpper("zuckerfrei")
 	fmt.Println(name_len, name_upper)
 
+	// for
+	total := supperAdd(1, 2, 3, 4, 5, 6, 7)
+	fmt.Println(total)
 }
