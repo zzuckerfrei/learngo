@@ -7,8 +7,16 @@ import (
 // kind of alias
 type Dictionary map[string]string
 
-var errorNotFound = errors.New("Not Found")
-var errorWordExists = errors.New("That word already exists")
+var (
+	errorNotFound     = errors.New("Not Found")
+	errorWordExists   = errors.New("That word already exists")
+	errorCannotUpdate = errors.New("can't update")
+	errosCannotDelete = errors.New("cannot delete")
+)
+
+// method receiver
+// Go에서 메소드 수신자(Method Receiver)를 사용하여 특정 타입의 객체에서만 메소드를 호출할 수 있도록 만듭니다.
+// 메소드 수신자는 메소드를 특정 타입에 바인딩하며, 그 타입의 인스턴스(객체)에서만 해당 메소드를 호출할 수 있게 합니다
 
 // Search for a word
 func (d Dictionary) Search(word string) (string, error) {
@@ -33,5 +41,29 @@ func (d Dictionary) Add(word, def string) error {
 	case nil:
 		return errorWordExists
 	}
+	return nil
+}
+
+// Update a word
+func (d Dictionary) Update(word, def string) error {
+	_, error := d.Search(word)
+	switch error {
+	case nil:
+		d[word] = def
+	case errorNotFound:
+		return errorCannotUpdate
+	}
+	return nil
+}
+
+// Delete a word
+// delete(object, "key")
+// the delete function doesn't return anything, and will do nothing if the key doesn't exists
+func (d Dictionary) Delete(word string) error {
+	_, error := d.Search(word)
+	if error == errorNotFound {
+		return errosCannotDelete
+	}
+	delete(d, word)
 	return nil
 }
