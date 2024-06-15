@@ -3,23 +3,24 @@ package main
 import (
 	"fmt"
 
-	accounts "github.com/zzuckerfrei/learngo/account"
+	"github.com/zzuckerfrei/learngo/mydict"
 )
 
 func main() {
-	account := accounts.NewAccount("nico")
-	account.Deposit(100)
-
-	fmt.Println(account.Balance())
-
-	err := account.Withdraw(200)
-	if err != nil {
-		fmt.Println(err)
+	dictionary := mydict.Dictionary{"first": "1"}
+	definition, error := dictionary.Search("first")
+	if error == nil {
+		fmt.Println(definition)
+	} else {
+		fmt.Println(error)
 	}
-	fmt.Println(account.Balance(), account.Owner())
 
-	account.ChangeOwner("zzuckerfrei")
-	fmt.Println(account.Balance(), account.Owner())
-
-	fmt.Println(account)
+	word := "hello"
+	definition = "my friend"
+	error = dictionary.Add(word, definition)
+	if error != nil {
+		fmt.Println(error)
+	}
+	value, _ := dictionary.Search(word)
+	fmt.Println("found :", word, "definition : ", value)
 }
