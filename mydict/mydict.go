@@ -70,7 +70,7 @@ func (d Dictionary) Delete(word string) error {
 }
 
 func main() {
-	dictionary := mydict.Dictionary{"first": "1"}
+	dictionary := Dictionary{"first": "1"}
 
 	// search
 	definition, error := dictionary.Search("first")
