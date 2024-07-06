@@ -2,59 +2,56 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"strconv"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
-type requestResult struct {
-	url    string
-	status string
-}
-
-// c chan<- resultResult : define direction from/to channel
-func hitUrl(url string, c chan<- requestResult) {
-	resp, err := http.Get(url)
-	status := "OK"
-	if err != nil || resp.StatusCode >= 400 {
-		status = "FAILED"
-	}
-	c <- requestResult{url: url, status: status}
-}
+var baseURL string = "https://www.saramin.co.kr/zf_user/search/recruit?&searchword=devops"
 
 func main() {
-	// initialize
-	// if you want to initialize an empty map, do like this.
-	// if not your map goes nil and you can't write into nil.
-	var results = make(map[string]string)
+	totalPages := getPages()
 
-	// channel
-	// goroutine과 메인함수 사이에 정보를 전달하기 위한 방법
-	// 또는 goroutine 과 goroutine 간의 커뮤니케이션도 가능
-	c := make(chan requestResult)
-
-	urls := []string{
-		"https://www.airbnb.com/",
-		"https://www.google.com/",
-		"https://www.amazon.com/",
-		"https://www.reddit.com/",
-		"https://www.google.com/",
-		"https://soundcloud.com/",
-		"https://www.facebook.com/",
-		"https://www.instagram.com/",
-		"https://academy.nomadcoders.co/",
+	for i := 0; i < totalPages; i++ {
+		getPage(i)
 	}
 
-	// idx, val
-	for _, url := range urls {
-		go hitUrl(url, c)
-	}
+}
 
-	for i := 0; i < len(urls); i++ {
-		result := <-c
-		results[result.url] = result.status
-	}
+func getPage(page int) {
+	pageURL := baseURL + "&recruitPage=" + strconv.Itoa(page+1)
+	fmt.Println(pageURL)
+}
 
-	for url, status := range results {
-		fmt.Println(url, "is", status)
-	}
+func getPages() int {
+	pages := 0
 
+	res, err := http.Get(baseURL)
+	checkErr(err)
+	checkStatusCode(res)
+
+	defer res.Body.Close() //
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	checkErr(err)
+
+	doc.Find(".pagination").Each(func(i int, s *goquery.Selection) {
+		pages = s.Find("a").Length()
+	})
+
+	return pages
+}
+
+func checkErr(err error) {
+	if err != nil {
+		log.Fatalln(err) //
+	}
+}
+
+func checkStatusCode(res *http.Response) {
+	if res.StatusCode != 200 {
+		log.Fatalln("Request failed with Status: ", res.StatusCode)
+	}
 }
