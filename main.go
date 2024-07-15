@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -20,6 +22,7 @@ type extractedJob struct {
 }
 
 var baseURL string = "https://www.saramin.co.kr/zf_user/search/recruit?&searchword=devops"
+var idURL string = "https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx="
 
 func main() {
 	var jobs []extractedJob
@@ -31,7 +34,28 @@ func main() {
 
 		break // 차단당하지 않기 위해
 	}
-	fmt.Println(jobs)
+	// fmt.Println(jobs)
+	writeJobs(jobs)
+	fmt.Println("Done, extracted ", len(jobs))
+
+}
+
+func writeJobs(jobs []extractedJob) {
+	file, err := os.Create("jobs.csv")
+	checkErr(err)
+
+	w := csv.NewWriter(file)
+	defer w.Flush()
+
+	headers := []string{"ID", "Title", "Company", "Location", "Workexp", "Skill"}
+	wErr := w.Write(headers)
+	checkErr(wErr)
+
+	for _, job := range jobs {
+		jobsSlice := []string{idURL + job.id, job.title, job.company, job.location, job.workexp, job.skill}
+		jwErr := w.Write(jobsSlice)
+		checkErr(jwErr)
+	}
 
 }
 
