@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -26,41 +27,39 @@ var idURL string = "https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=n
 
 func main() {
 	var jobs []extractedJob
+	c := make(chan []extractedJob)
+	var wg sync.WaitGroup
+
 	totalPages := getPages()
 
 	for i := 0; i < totalPages; i++ {
-		extractedJobs := getPage(i)
-		jobs = append(jobs, extractedJobs...)
+		wg.Add(1) // goroutine 카운트
+		go getPage(i, c)
 
-		break // 차단당하지 않기 위해
+		// break // 차단당하지 않기 위해 테스트용
 	}
-	// fmt.Println(jobs)
+
+	// 모든 goroutine 완료되면 채널 닫기위한 goroutine 생성 -> 안정성
+	go func() {
+		wg.Wait() // 모든 goroutine이 종료되어 카운트가 일치할 때까지 대기
+		close(c)
+	}()
+
+	// how many goroutine?
+	for i := 0; i < totalPages; i++ {
+		extractedJob := <-c
+		jobs = append(jobs, extractedJob...)
+	}
+
 	writeJobs(jobs)
+
 	fmt.Println("Done, extracted ", len(jobs))
-
 }
 
-func writeJobs(jobs []extractedJob) {
-	file, err := os.Create("jobs.csv")
-	checkErr(err)
-
-	w := csv.NewWriter(file)
-	defer w.Flush()
-
-	headers := []string{"ID", "Title", "Company", "Location", "Workexp", "Skill"}
-	wErr := w.Write(headers)
-	checkErr(wErr)
-
-	for _, job := range jobs {
-		jobsSlice := []string{idURL + job.id, job.title, job.company, job.location, job.workexp, job.skill}
-		jwErr := w.Write(jobsSlice)
-		checkErr(jwErr)
-	}
-
-}
-
-func getPage(page int) []extractedJob {
+func getPage(page int, mainC chan<- []extractedJob) {
 	var jobs []extractedJob
+	c := make(chan extractedJob)
+	var wg sync.WaitGroup
 
 	pageURL := baseURL + "&recruitPage=" + strconv.Itoa(page+1)
 	fmt.Println(pageURL)
@@ -76,13 +75,27 @@ func getPage(page int) []extractedJob {
 
 	searchCards := doc.Find(".item_recruit")
 	searchCards.Each(func(i int, card *goquery.Selection) {
-		job := extractJob(card)
-		jobs = append(jobs, job)
+		wg.Add(1)              // goroutine 카운트
+		go extractJob(card, c) // create goroutine
 	})
-	return jobs
+
+	// 모든 goroutine 완료되면 채널 닫기위한 goroutine 생성 -> 안정성
+	go func() {
+		wg.Wait() // 모든 goroutine이 종료되어 카운트가 일치할 때까지 대기
+		close(c)
+	}()
+
+	// put a job into jobs
+	for i := 0; i < searchCards.Length(); i++ {
+		job := <-c
+		jobs = append(jobs, job)
+	}
+
+	mainC <- jobs
 }
 
-func extractJob(card *goquery.Selection) extractedJob {
+// send something to channel
+func extractJob(card *goquery.Selection, c chan<- extractedJob) {
 	id, _ := card.Attr("value")
 	title, _ := card.Find(".area_job>h2>a").Attr("title")
 	company := cleanStrings(card.Find(".area_corp>.corp_name>a").Text())
@@ -101,7 +114,7 @@ func extractJob(card *goquery.Selection) extractedJob {
 
 	// fmt.Println(id, title, company, location, workexp.String(), skill.String())
 
-	return extractedJob{id: id,
+	c <- extractedJob{id: id,
 		title:    title,
 		company:  company,
 		location: location,
@@ -127,6 +140,25 @@ func getPages() int {
 	})
 
 	return pages
+}
+
+func writeJobs(jobs []extractedJob) {
+	file, err := os.Create("jobs.csv")
+	checkErr(err)
+
+	w := csv.NewWriter(file)
+	defer w.Flush()
+
+	headers := []string{"ID", "Title", "Company", "Location", "Workexp", "Skill"}
+	wErr := w.Write(headers)
+	checkErr(wErr)
+
+	for _, job := range jobs {
+		jobsSlice := []string{idURL + job.id, job.title, job.company, job.location, job.workexp, job.skill}
+		jwErr := w.Write(jobsSlice)
+		checkErr(jwErr)
+	}
+
 }
 
 func checkErr(err error) {
